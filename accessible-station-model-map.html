@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Accessible Station Model Map</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css" />
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; background: #1a1a2e; }
+
+  /* ── TOP BAR ── */
+  #topBar {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+    padding: 8px 14px; background: #2c3e50; color: white;
+    font-size: 0.85rem; flex-shrink: 0; border-bottom: 3px solid #e74c3c;
+  }
+  #topBar label { font-weight: bold; color: #ecf0f1; white-space: nowrap; }
+  #topBar input[type="date"], #topBar input[type="time"] {
+    padding: 5px 8px; border-radius: 4px; border: 1px solid #7f8c8d;
+    background: #34495e; color: white; font-size: 0.85rem;
+  }
+  #topBar input[type="date"]:focus, #topBar input[type="time"]:focus {
+    outline: 3px solid #f39c12; outline-offset: 1px;
+  }
+  #btnLoad {
+    padding: 6px 16px; background: #e74c3c; color: white;
+    border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.85rem;
+  }
+  #btnLoad:hover { background: #c0392b; }
+  #btnLoad:focus { outline: 3px solid #f39c12; }
+  #topStatus { color: #bdc3c7; font-size: 0.8rem; flex: 1; text-align: right; min-width: 120px; }
+
+  /* ── MAIN LAYOUT ── */
+  #main { display: flex; flex: 1; overflow: hidden; }
+  #map { flex: 1; height: 100%; }
+
+  /* ── SIDE PANEL ── */
+  #infoPanel {
+    width: 310px; min-width: 260px; height: 100%;
+    padding: 14px; border-left: 3px solid #2c3e50;
+    overflow-y: auto; background: #f4f6f7; flex-shrink: 0;
+  }
+  #infoPanel h1 {
+    font-size: 1rem; color: #2c3e50; margin-bottom: 8px;
+    border-bottom: 2px solid #2c3e50; padding-bottom: 5px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  #lockedBadge {
+    display: none; background: #e74c3c; color: white;
+    font-size: 0.7rem; padding: 2px 7px; border-radius: 10px;
+  }
+
+  #stationTable { width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 0.82rem; }
+  #stationTable th { background: #2c3e50; color: white; text-align: left; padding: 6px 8px; }
+  #stationTable td { padding: 6px 8px; border-bottom: 1px solid #ddd; vertical-align: top; }
+  #stationTable tr:nth-child(even) td { background: #eaf0fb; }
+  #stationTable td:first-child { font-weight: bold; color: #2c3e50; width: 46%; }
+
+  .btn {
+    display: inline-block; padding: 7px 13px; margin: 3px 3px 3px 0;
+    border: none; border-radius: 4px; cursor: pointer; font-size: 0.82rem; font-weight: bold;
+  }
+  .btn:focus { outline: 3px solid #f39c12; }
+  #btnUnlock { background: #e74c3c; color: white; }
+  #btnUnlock:hover { background: #c0392b; }
+  #btnExport { background: #27ae60; color: white; }
+  #btnExport:hover { background: #1e8449; }
+
+  #noData { color: #7f8c8d; font-size: 0.82rem; font-style: italic; margin-top: 6px; }
+
+  .leaflet-div-icon { background: none !important; border: none !important; }
+</style>
+</head>
+<body>
+
+<!-- ── TOP CONTROL BAR ── -->
+<div id="topBar" role="banner">
+  <label for="inputDate">Date (UTC):</label>
+  <input type="date" id="inputDate" aria-label="Observation date in UTC" />
+
+  <label for="inputTime">Time (UTC):</label>
+  <input type="time" id="inputTime" aria-label="Observation time in UTC" step="3600" />
+
+  <button id="btnLoad" onclick="loadStations()" aria-label="Load station data for selected date and time">
+    ▶ Load Stations
+  </button>
+
+  <span id="topStatus" aria-live="polite" aria-atomic="true">Select a date &amp; time, then click Load.</span>
+</div>
+
+<!-- ── MAIN CONTENT ── -->
+<div id="main">
+  <div id="map" role="application" aria-label="METAR Station Model Map. Hover or focus a station to see its data in the panel."></div>
+
+  <div id="infoPanel" aria-live="polite" aria-atomic="true" role="region" aria-label="Station Data Panel">
+    <h1>Station Data <span id="lockedBadge" aria-label="Station locked">🔒 Locked</span></h1>
+
+    <table id="stationTable" aria-label="Current station observation data">
+      <thead><tr><th scope="col">Field</th><th scope="col">Value</th></tr></thead>
+      <tbody>
+        <tr><td>Station ID</td><td id="tdStation">—</td></tr>
+        <tr><td>Obs Time (UTC)</td><td id="tdTime">—</td></tr>
+        <tr><td>Temperature (°F)</td><td id="tdTemp">—</td></tr>
+        <tr><td>Dew Point (°F)</td><td id="tdDew">—</td></tr>
+        <tr><td>Relative Humidity (%)</td><td id="tdRelh">—</td></tr>
+        <tr><td>Wind Direction</td><td id="tdWdir">—</td></tr>
+        <tr><td>Wind Speed (kt)</td><td id="tdWspd">—</td></tr>
+        <tr><td>Wind Gust (kt)</td><td id="tdGust">—</td></tr>
+        <tr><td>Sea Level Pressure (mb)</td><td id="tdSlp">—</td></tr>
+        <tr><td>Coded SLP (WPC)</td><td id="tdSlpCoded">—</td></tr>
+        <tr><td>Altimeter (in)</td><td id="tdAlti">—</td></tr>
+        <tr><td>Visibility (mi)</td><td id="tdVsby">—</td></tr>
+        <tr><td>Sky Cover</td><td id="tdSky">—</td></tr>
+        <tr><td>Present Weather</td><td id="tdWx">—</td></tr>
+        <tr><td>Raw METAR</td><td id="tdRaw" style="font-size:0.72rem;word-break:break-all;">—</td></tr>
+      </tbody>
+    </table>
+
+    <button class="btn" id="btnUnlock" onclick="unlockStation()" aria-label="Unlock station and resume hover updates">Unlock Station</button>
+    <button class="btn" id="btnExport" onclick="exportCSV()" aria-label="Export all loaded station data as CSV">⬇ Export CSV</button>
+
+    <p id="noData">Load a date &amp; time to begin.</p>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────────────────
+const CONUS = { minLat: 24.5, maxLat: 49.5, minLon: -125.0, maxLon: -66.5 };
+const MAX_STATIONS = 1500;
+
+// ── MAP SETUP ─────────────────────────────────────────────────────────────────
+const map = L.map('map', { zoomControl: true }).setView([39, -98], 5);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenStreetMap contributors', maxZoom: 18
+}).addTo(map);
+
+const clusterGroup = L.markerClusterGroup({
+  maxClusterRadius: 45,
+  disableClusteringAtZoom: 7,
+  spiderfyOnMaxZoom: true
+});
+map.addLayer(clusterGroup);
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let lockedStation = null;
+let stationDataStore = {};
+
+// ── SET DEFAULT DATE/TIME (current UTC hour) ──────────────────────────────────
+(function setDefaults() {
+  const now = new Date();
+  // Go back 2 hours to ensure data exists
+  now.setUTCHours(now.getUTCHours() - 2);
+  const yyyy = now.getUTCFullYear();
+  const mm   = String(now.getUTCMonth() + 1).padStart(2, '0');
+  const dd   = String(now.getUTCDate()).padStart(2, '0');
+  const hh   = String(now.getUTCHours()).padStart(2, '0');
+  document.getElementById('inputDate').value = `${yyyy}-${mm}-${dd}`;
+  document.getElementById('inputTime').value = `${hh}:00`;
+})();
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+function codeSLP(mb) {
+  if (!mb || mb === 'M' || isNaN(mb)) return "—";
+  // WPC 3-digit: last 3 digits of (mb * 10), zero-padded
+  const val = Math.round(parseFloat(mb) * 10) % 1000;
+  return val.toString().padStart(3, '0');
+}
+
+function degToCard(deg) {
+  if (!deg || deg === 'M' || isNaN(deg)) return "—";
+  const dirs = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
+  return dirs[Math.round(parseFloat(deg) / 22.5) % 16] + " (" + Math.round(deg) + "°)";
+}
+
+function skyLabel(code) {
+  const m = { CLR:"Clear", SKC:"Clear", FEW:"Few", SCT:"Scattered", BKN:"Broken", OVC:"Overcast", VV:"Vert. Visibility" };
+  return m[code] || code || "—";
+}
+
+function skyFill(code) {
+  const f = { CLR:0, SKC:0, FEW:0.15, SCT:0.4, BKN:0.75, OVC:1.0, VV:1.0 };
+  return (f[code] !== undefined) ? f[code] : 0;
+}
+
+function fmtVal(val) {
+  if (val === null || val === undefined || val === 'M' || val === '') return "—";
+  return val;
+}
+
+function setStatus(msg) {
+  document.getElementById('topStatus').textContent = msg;
+}
+
+// ── STATION MODEL CANVAS ──────────────────────────────────────────────────────
+function drawStationModel(d) {
+  const W = 90, H = 90, cx = 45, cy = 45, r = 11;
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  // ── Sky cover circle ──
+  const fill = skyFill(d.skyc1);
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+  ctx.strokeStyle = "#111"; ctx.lineWidth = 1.5; ctx.stroke();
+
+  if (fill > 0 && fill < 1) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * fill);
+    ctx.closePath();
+    ctx.fillStyle = "#111"; ctx.fill();
+    ctx.restore();
+  } else if (fill >= 1) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+    ctx.fillStyle = "#111"; ctx.fill();
+  }
+
+  ctx.font = "bold 10px Arial";
+
+  // ── Temperature — upper left (red) ──
+  const tmpf = parseFloat(d.tmpf);
+  if (!isNaN(tmpf)) {
+    ctx.fillStyle = "#c0392b";
+    ctx.fillText(Math.round(tmpf), 2, 14);
+  }
+
+  // ── Dew point — lower left (green) ──
+  const dwpf = parseFloat(d.dwpf);
+  if (!isNaN(dwpf)) {
+    ctx.fillStyle = "#27ae60";
+    ctx.fillText(Math.round(dwpf), 2, 82);
+  }
+
+  // ── Coded SLP — upper right (dark blue) ──
+  const slpCode = codeSLP(d.mslp);
+  if (slpCode !== "—") {
+    ctx.fillStyle = "#1a237e";
+    ctx.fillText(slpCode, 56, 14);
+  }
+
+  // ── Wind barb ──
+  const spd = parseFloat(d.sknt);
+  const dir = parseFloat(d.drct);
+
+  if (!isNaN(spd) && !isNaN(dir)) {
+    if (spd < 2) {
+      // Calm: double circle
+      ctx.beginPath();
+      ctx.arc(cx, cy, r + 5, 0, 2 * Math.PI);
+      ctx.strokeStyle = "#111"; ctx.lineWidth = 1; ctx.stroke();
+    } else {
+      const rad = (dir - 180) * Math.PI / 180;
+      const staffLen = 28;
+      const x2 = cx + staffLen * Math.sin(rad);
+      const y2 = cy - staffLen * Math.cos(rad);
+
+      // Staff line
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(x2, y2);
+      ctx.strokeStyle = "#111"; ctx.lineWidth = 1.5; ctx.stroke();
+
+      // Barbs
+      let remaining = spd;
+      let pos = 0;
+      const barbSpacing = 5;
+      const barbLen = 12;
+      const pennantLen = 12;
+
+      const perpX = Math.cos(rad);
+      const perpY = Math.sin(rad);
+
+      // Pennants (50 kt)
+      while (remaining >= 47) {
+        const bx = x2 - pos * Math.sin(rad);
+        const by = y2 + pos * Math.cos(rad);
+        ctx.beginPath();
+        ctx.moveTo(bx, by);
+        ctx.lineTo(bx + pennantLen * perpX - barbSpacing * Math.sin(rad),
+                   by + pennantLen * perpY + barbSpacing * Math.cos(rad));
+        ctx.lineTo(bx - barbSpacing * Math.sin(rad),
+                   by + barbSpacing * Math.cos(rad));
+        ctx.closePath();
+        ctx.fillStyle = "#111"; ctx.fill();
+        remaining -= 50;
+        pos += barbSpacing + 2;
+      }
+
+      // Full barbs (10 kt)
+      while (remaining >= 7) {
+        const bx = x2 - pos * Math.sin(rad);
+        const by = y2 + pos * Math.cos(rad);
+        ctx.beginPath();
+        ctx.moveTo(bx, by);
+        ctx.lineTo(bx + barbLen * perpX, by + barbLen * perpY);
+        ctx.strokeStyle = "#111"; ctx.lineWidth = 1.5; ctx.stroke();
+        remaining -= 10;
+        pos += barbSpacing;
+      }
+
+      // Half barb (5 kt)
+      if (remaining >= 2) {
+        const bx = x2 - pos * Math.sin(rad);
+        const by = y2 + pos * Math.cos(rad);
+        ctx.beginPath();
+        ctx.moveTo(bx, by);
+        ctx.lineTo(bx + (barbLen / 2) * perpX, by + (barbLen / 2) * perpY);
+        ctx.strokeStyle = "#111"; ctx.lineWidth = 1.5; ctx.stroke();
+      }
+    }
+  }
+
+  return canvas.toDataURL();
+}
+
+// ── POPULATE PANEL ────────────────────────────────────────────────────────────
+function populatePanel(d) {
+  document.getElementById('tdStation').textContent  = fmtVal(d.station);
+  document.getElementById('tdTime').textContent     = fmtVal(d.valid);
+  document.getElementById('tdTemp').textContent     = fmtVal(d.tmpf) !== "—" ? Math.round(d.tmpf) + " °F" : "—";
+  document.getElementById('tdDew').textContent      = fmtVal(d.dwpf) !== "—" ? Math.round(d.dwpf) + " °F" : "—";
+  document.getElementById('tdRelh').textContent     = fmtVal(d.relh) !== "—" ? Math.round(d.relh) + "%" : "—";
+  document.getElementById('tdWdir').textContent     = degToCard(d.drct);
+  document.getElementById('tdWspd').textContent     = fmtVal(d.sknt) !== "—" ? d.sknt + " kt" : "—";
+  document.getElementById('tdGust').textContent     = fmtVal(d.gust) !== "—" ? d.gust + " kt" : "—";
+  document.getElementById('tdSlp').textContent      = fmtVal(d.mslp) !== "—" ? d.mslp + " mb" : "—";
+  document.getElementById('tdSlpCoded').textContent = codeSLP(d.mslp);
+  document.getElementById('tdAlti').textContent     = fmtVal(d.alti) !== "—" ? d.alti + " in" : "—";
+  document.getElementById('tdVsby').textContent     = fmtVal(d.vsby) !== "—" ? d.vsby + " mi" : "—";
+  document.getElementById('tdSky').textContent      = skyLabel(d.skyc1);
+  document.getElementById('tdWx').textContent       = fmtVal(d.wxcodes);
+  document.getElementById('tdRaw').textContent      = fmtVal(d.metar);
+  document.getElementById('noData').style.display   = 'none';
+}
+
+// ── LOCK / UNLOCK ─────────────────────────────────────────────────────────────
+function lockStation(id) {
+  lockedStation = id;
+  document.getElementById('lockedBadge').style.display = 'inline';
+}
+
+function unlockStation() {
+  lockedStation = null;
+  document.getElementById('lockedBadge').style.display = 'none';
+}
+
+// ── PARSE IEM CSV ─────────────────────────────────────────────────────────────
+function parseCSV(text) {
+  const lines = text.split('\n').filter(l => l.trim() && !l.startsWith('#'));
+  if (lines.length < 2) return [];
+  const headers = lines[0].split(',').map(h => h.trim());
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const vals = lines[i].split(',');
+    if (vals.length < headers.length) continue;
+    const obj = {};
+    headers.forEach((h, idx) => { obj[h] = vals[idx] ? vals[idx].trim() : ''; });
+    rows.push(obj);
+  }
+  return rows;
+}
+
+// ── LOAD STATIONS ─────────────────────────────────────────────────────────────
+async function loadStations() {
+  const dateVal = document.getElementById('inputDate').value;
+  const timeVal = document.getElementById('inputTime').value;
+
+  if (!dateVal || !timeVal) {
+    setStatus("⚠ Please select both a date and time.");
+    return;
+  }
+
+  // Parse date/time
+  const [yr, mo, dy] = dateVal.split('-');
+  const [hr, mn] = timeVal.split(':');
+
+  // End time = start + 1 hour
+  const startDt = new Date(Date.UTC(+yr, +mo - 1, +dy, +hr, +mn));
+  const endDt   = new Date(startDt.getTime() + 60 * 60 * 1000);
+
+  const yr2  = endDt.getUTCFullYear();
+  const mo2  = String(endDt.getUTCMonth() + 1).padStart(2, '0');
+  const dy2  = String(endDt.getUTCDate()).padStart(2, '0');
+  const hr2  = String(endDt.getUTCHours()).padStart(2, '0');
+  const mn2  = String(endDt.getUTCMinutes()).padStart(2, '0');
+
+  // IEM ASOS CGI endpoint — returns CSV, CORS-open
+  const url = [
+    'https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py?',
+    'data=tmpf,dwpf,relh,drct,sknt,gust,alti,mslp,vsby,skyc1,wxcodes,metar',
+    '&latlon=yes',
+    '&elev=no',
+    '&missing=M',
+    '&trace=T',
+    '&direct=no',
+    '&report_type=3',         // routine hourly observations
+    `&year1=${yr}&month1=${mo}&day1=${dy}&hour1=${hr}&minute1=${mn}`,
+    `&year2=${yr2}&month2=${mo2}&day2=${dy2}&hour2=${hr2}&minute2=${mn2}`,
+    '&tz=UTC',
+    '&format=comma',
+  ].join('');
+
+  setStatus("⏳ Loading stations…");
+  clusterGroup.clearLayers();
+  stationDataStore = {};
+  unlockStation();
+
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const text = await resp.text();
+
+    if (text.trim().startsWith('<')) {
+      throw new Error("Server returned HTML instead of CSV — try a different time.");
+    }
+
+    const rows = parseCSV(text);
+    if (rows.length === 0) {
+      setStatus("⚠ No data returned. Try a different date/time.");
+      return;
+    }
+
+    // Filter CONUS + deduplicate (keep latest per station)
+    const stationMap = {};
+    for (const row of rows) {
+      const lat = parseFloat(row.lat);
+      const lon = parseFloat(row.lon);
+      if (isNaN(lat) || isNaN(lon)) continue;
+      if (lat < CONUS.minLat || lat > CONUS.maxLat) continue;
+      if (lon < CONUS.minLon || lon > CONUS.maxLon) continue;
+      stationMap[row.station] = row; // overwrite keeps latest
+    }
+
+    const stations = Object.values(stationMap).slice(0, MAX_STATIONS);
+
+    stations.forEach(d => {
+      const lat = parseFloat(d.lat);
+      const lon = parseFloat(d.lon);
+      const imgData = drawStationModel(d);
+
+      const icon = L.icon({
+        iconUrl: imgData,
+        iconSize: [90, 90],
+        iconAnchor: [45, 45],
+        className: ''
+      });
+
+      const marker = L.marker([lat, lon], {
+        icon,
+        title: d.station,
+        alt: `Station ${d.station}: Temp ${d.tmpf}°F, Dewpoint ${d.dwpf}°F, Wind ${degToCard(d.drct)} at ${d.sknt} kt`,
+        keyboard: true
+      });
+
+      // Hover
+      marker.on('mouseover', () => {
+        if (!lockedStation) populatePanel(d);
+      });
+
+      // Click to lock
+      marker.on('click', () => {
+        lockStation(d.station);
+        populatePanel(d);
+      });
+
+      // Keyboard focus
+      marker.on('keypress', (e) => {
+        if (e.originalEvent.key === 'Enter' || e.originalEvent.key === ' ') {
+          lockStation(d.station);
+          populatePanel(d);
+        }
+      });
+
+      stationDataStore[d.station] = d;
+      clusterGroup.addLayer(marker);
+    });
+
+    setStatus(`✅ Loaded ${stations.length} stations for ${dateVal} ${timeVal} UTC`);
+
+  } catch (err) {
+    console.error("Station load error:", err);
+    setStatus(`❌ Error: ${err.message}`);
+  }
+}
+
+// ── CSV EXPORT ────────────────────────────────────────────────────────────────
+function exportCSV() {
+  const stations = Object.values(stationDataStore);
+  if (stations.length === 0) {
+    alert("No station data loaded yet.");
+    return;
+  }
+
+  const headers = [
+    "Station","Valid (UTC)","Lat","Lon",
+    "Temp (F)","Dewpoint (F)","Rel Humidity (%)","Wind Dir (deg)","Wind Dir (cardinal)",
+    "Wind Speed (kt)","Wind Gust (kt)","Altimeter (in)","Sea Level Pressure (mb)",
+    "Coded SLP (WPC)","Visibility (mi)","Sky Cover","Present Weather","Raw METAR"
+  ];
+
+  const rows = stations.map(d => [
+    d.station, d.valid, d.lat, d.lon,
+    fmtVal(d.tmpf), fmtVal(d.dwpf), fmtVal(d.relh), fmtVal(d.drct), degToCard(d.drct),
+    fmtVal(d.sknt), fmtVal(d.gust), fmtVal(d.alti), fmtVal(d.mslp),
+    codeSLP(d.mslp), fmtVal(d.vsby), skyLabel(d.skyc1), fmtVal(d.wxcodes),
+    `"${fmtVal(d.metar)}"`
+  ]);
+
+  const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `metar_stations_${document.getElementById('inputDate').value}_${document.getElementById('inputTime').value.replace(':','')}.csv`;
+  a.click();
+}
+</script>
+</body>
+</html>
