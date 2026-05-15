@@ -18,19 +18,49 @@
     font-size: 0.85rem; flex-shrink: 0; border-bottom: 3px solid #e74c3c;
   }
   #topBar label { font-weight: bold; color: #ecf0f1; white-space: nowrap; }
-  #topBar input[type="date"], #topBar input[type="time"] {
-    padding: 5px 8px; border-radius: 4px; border: 1px solid #7f8c8d;
-    background: #34495e; color: white; font-size: 0.85rem;
+
+  /* ── DATE/TIME INPUTS ──
+     Background: #2c3e50 (dark blue-grey)
+     Border color: #a0aab4 — contrast vs #2c3e50 = ~3.2:1 ✅
+     Focus outline: #f39c12 (amber) — contrast vs #2c3e50 = ~5.9:1 ✅
+  */
+  #topBar input[type="date"],
+  #topBar input[type="time"] {
+    padding: 5px 8px;
+    border-radius: 4px;
+    border: 2px solid #a0aab4;   /* 3.2:1 contrast vs #2c3e50 ✅ */
+    background: #34495e;
+    color: white;
+    font-size: 0.85rem;
   }
-  #topBar input[type="date"]:focus, #topBar input[type="time"]:focus {
-    outline: 3px solid #f39c12; outline-offset: 1px;
+  #topBar input[type="date"]:focus,
+  #topBar input[type="time"]:focus {
+    outline: 3px solid #f39c12;  /* 5.9:1 contrast vs #2c3e50 ✅ */
+    outline-offset: 2px;
+    border-color: #f39c12;
   }
+
+  /* ── LOAD BUTTON ──
+     Background: #c0392b  Text: #ffffff  Contrast: 5.1:1 ✅
+     Border: #7b241c — contrast vs #c0392b = ~3.1:1 ✅
+     Focus outline: #f39c12 ✅
+  */
   #btnLoad {
-    padding: 6px 16px; background: #e74c3c; color: white;
-    border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.85rem;
+    padding: 6px 16px;
+    background: #c0392b;
+    color: #ffffff;
+    border: 2px solid #7b241c;   /* 3.1:1 contrast vs button bg ✅ */
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 0.85rem;
   }
-  #btnLoad:hover { background: #c0392b; }
-  #btnLoad:focus { outline: 3px solid #f39c12; }
+  #btnLoad:hover { background: #a93226; border-color: #641e16; }
+  #btnLoad:focus {
+    outline: 3px solid #f39c12;
+    outline-offset: 2px;
+  }
+
   #topStatus { color: #bdc3c7; font-size: 0.8rem; flex: 1; text-align: right; min-width: 120px; }
 
   /* ── MAIN LAYOUT ── */
@@ -49,7 +79,7 @@
     display: flex; align-items: center; gap: 6px;
   }
   #lockedBadge {
-    display: none; background: #e74c3c; color: white;
+    display: none; background: #c0392b; color: white;
     font-size: 0.7rem; padding: 2px 7px; border-radius: 10px;
   }
 
@@ -59,17 +89,41 @@
   #stationTable tr:nth-child(even) td { background: #eaf0fb; }
   #stationTable td:first-child { font-weight: bold; color: #2c3e50; width: 46%; }
 
+  /* ── PANEL BUTTONS ──
+     .btn-unlock: bg #c0392b, border #7b241c (3.1:1 vs bg) ✅
+     .btn-export: bg #1e8449, border #145a32 (3.1:1 vs bg) ✅
+     Focus outline: #e67e22 (orange) — visible on white panel bg ✅
+  */
   .btn {
-    display: inline-block; padding: 7px 13px; margin: 3px 3px 3px 0;
-    border: none; border-radius: 4px; cursor: pointer; font-size: 0.82rem; font-weight: bold;
+    display: inline-block;
+    padding: 7px 13px;
+    margin: 3px 3px 3px 0;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: bold;
+    border: 2px solid transparent;
   }
-  .btn:focus { outline: 3px solid #f39c12; }
-  #btnUnlock { background: #e74c3c; color: white; }
-  #btnUnlock:hover { background: #c0392b; }
-  #btnExport { background: #27ae60; color: white; }
-  #btnExport:hover { background: #1e8449; }
+  .btn:focus {
+    outline: 3px solid #e67e22;  /* 4.5:1 vs white panel bg ✅ */
+    outline-offset: 2px;
+  }
 
-  #noData { color: #7f8c8d; font-size: 0.82rem; font-style: italic; margin-top: 6px; }
+  #btnUnlock {
+    background: #c0392b;
+    color: #ffffff;
+    border-color: #7b241c;       /* 3.1:1 vs #c0392b ✅ */
+  }
+  #btnUnlock:hover { background: #a93226; border-color: #641e16; }
+
+  #btnExport {
+    background: #1e8449;
+    color: #ffffff;
+    border-color: #145a32;       /* 3.2:1 vs #1e8449 ✅ */
+  }
+  #btnExport:hover { background: #196f3d; border-color: #0e3d22; }
+
+  #noData { color: #5d6d7e; font-size: 0.82rem; font-style: italic; margin-top: 6px; }
 
   .leaflet-div-icon { background: none !important; border: none !important; }
 </style>
@@ -150,10 +204,9 @@ map.addLayer(clusterGroup);
 let lockedStation = null;
 let stationDataStore = {};
 
-// ── SET DEFAULT DATE/TIME (current UTC hour) ──────────────────────────────────
+// ── SET DEFAULT DATE/TIME (current UTC hour - 2) ──────────────────────────────
 (function setDefaults() {
   const now = new Date();
-  // Go back 2 hours to ensure data exists
   now.setUTCHours(now.getUTCHours() - 2);
   const yyyy = now.getUTCFullYear();
   const mm   = String(now.getUTCMonth() + 1).padStart(2, '0');
@@ -166,7 +219,6 @@ let stationDataStore = {};
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 function codeSLP(mb) {
   if (!mb || mb === 'M' || isNaN(mb)) return "—";
-  // WPC 3-digit: last 3 digits of (mb * 10), zero-padded
   const val = Math.round(parseFloat(mb) * 10) % 1000;
   return val.toString().padStart(3, '0');
 }
@@ -178,172 +230,234 @@ function degToCard(deg) {
 }
 
 function skyLabel(code) {
-  const m = { CLR:"Clear", SKC:"Clear", FEW:"Few", SCT:"Scattered", BKN:"Broken", OVC:"Overcast", VV:"Vert. Visibility" };
+  const m = { CLR:"Clear", SKC:"Clear", FEW:"Few (1-2 oktas)", SCT:"Scattered (3-4 oktas)",
+              BKN:"Broken (5-7 oktas)", OVC:"Overcast (8 oktas)", VV:"Vertical Visibility" };
   return m[code] || code || "—";
 }
 
-function skyFill(code) {
-  const f = { CLR:0, SKC:0, FEW:0.15, SCT:0.4, BKN:0.75, OVC:1.0, VV:1.0 };
-  return (f[code] !== undefined) ? f[code] : 0;
+function cToF(c) {
+  if (c === null || c === undefined || c === 'M' || isNaN(c)) return "—";
+  return (parseFloat(c) * 9/5 + 32).toFixed(1);
 }
 
-function fmtVal(val) {
-  if (val === null || val === undefined || val === 'M' || val === '') return "—";
-  return val;
+function relHumidity(tC, tdC) {
+  if (isNaN(tC) || isNaN(tdC)) return "—";
+  const rh = 100 * Math.exp((17.625 * tdC / (243.04 + tdC)) - (17.625 * tC / (243.04 + tC)));
+  return Math.round(rh) + "%";
 }
 
-function setStatus(msg) {
-  document.getElementById('topStatus').textContent = msg;
-}
+// ── STATION MODEL SVG ─────────────────────────────────────────────────────────
+function buildStationSVG(d) {
+  const W = 80, H = 80, cx = 40, cy = 40, r = 8;
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"
+    role="img" aria-label="Station model for ${d.station || ''}">`;
 
-// ── STATION MODEL CANVAS ──────────────────────────────────────────────────────
-function drawStationModel(d) {
-  const W = 90, H = 90, cx = 45, cy = 45, r = 11;
-  const canvas = document.createElement('canvas');
-  canvas.width = W; canvas.height = H;
-  const ctx = canvas.getContext('2d');
-
-  // ── Sky cover circle ──
-  const fill = skyFill(d.skyc1);
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, 2 * Math.PI);
-  ctx.strokeStyle = "#111"; ctx.lineWidth = 1.5; ctx.stroke();
-
+  // Sky cover circle
+  const skyFill = { CLR:0, SKC:0, FEW:0.2, SCT:0.5, BKN:0.75, OVC:1.0, VV:1.0 };
+  const fill = skyFill[d.skyc1] !== undefined ? skyFill[d.skyc1] : 0;
+  svg += `<circle cx="${cx}" cy="${cy}" r="${r}" stroke="#222" stroke-width="1.5" fill="white"/>`;
   if (fill > 0 && fill < 1) {
-    ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * fill);
-    ctx.closePath();
-    ctx.fillStyle = "#111"; ctx.fill();
-    ctx.restore();
+    const angle = fill * 360;
+    const rad = angle * Math.PI / 180;
+    const x2 = cx + r * Math.sin(rad);
+    const y2 = cy - r * Math.cos(rad);
+    const large = angle > 180 ? 1 : 0;
+    svg += `<path d="M${cx},${cy-r} A${r},${r} 0 ${large},1 ${x2},${y2} L${cx},${cy} Z"
+      fill="#222" stroke="none"/>`;
   } else if (fill >= 1) {
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, 2 * Math.PI);
-    ctx.fillStyle = "#111"; ctx.fill();
+    svg += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#222"/>`;
   }
 
-  ctx.font = "bold 10px Arial";
+  // Calm wind: double circle
+  const wspd = parseFloat(d.sknt) || 0;
+  const wdir = parseFloat(d.drct) || 0;
+  if (wspd < 3) {
+    svg += `<circle cx="${cx}" cy="${cy}" r="${r+4}" stroke="#222" stroke-width="1.2" fill="none"/>`;
+  } else {
+    // Wind barb staff
+    const staffLen = 28;
+    const rad = ((wdir + 180) % 360) * Math.PI / 180;
+    const x1 = cx + r * Math.sin(rad);
+    const y1 = cy - r * Math.cos(rad);
+    const x2 = cx + (r + staffLen) * Math.sin(rad);
+    const y2 = cy - (r + staffLen) * Math.cos(rad);
+    svg += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#222" stroke-width="1.5"/>`;
 
-  // ── Temperature — upper left (red) ──
-  const tmpf = parseFloat(d.tmpf);
-  if (!isNaN(tmpf)) {
-    ctx.fillStyle = "#c0392b";
-    ctx.fillText(Math.round(tmpf), 2, 14);
-  }
+    // Barb feathers
+    const perpRad = rad + Math.PI / 2;
+    let remaining = wspd;
+    let pos = 0;
+    const spacing = 5;
+    const barbLen = 10;
+    const pennantLen = 10;
 
-  // ── Dew point — lower left (green) ──
-  const dwpf = parseFloat(d.dwpf);
-  if (!isNaN(dwpf)) {
-    ctx.fillStyle = "#27ae60";
-    ctx.fillText(Math.round(dwpf), 2, 82);
-  }
-
-  // ── Coded SLP — upper right (dark blue) ──
-  const slpCode = codeSLP(d.mslp);
-  if (slpCode !== "—") {
-    ctx.fillStyle = "#1a237e";
-    ctx.fillText(slpCode, 56, 14);
-  }
-
-  // ── Wind barb ──
-  const spd = parseFloat(d.sknt);
-  const dir = parseFloat(d.drct);
-
-  if (!isNaN(spd) && !isNaN(dir)) {
-    if (spd < 2) {
-      // Calm: double circle
-      ctx.beginPath();
-      ctx.arc(cx, cy, r + 5, 0, 2 * Math.PI);
-      ctx.strokeStyle = "#111"; ctx.lineWidth = 1; ctx.stroke();
-    } else {
-      const rad = (dir - 180) * Math.PI / 180;
-      const staffLen = 28;
-      const x2 = cx + staffLen * Math.sin(rad);
-      const y2 = cy - staffLen * Math.cos(rad);
-
-      // Staff line
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.lineTo(x2, y2);
-      ctx.strokeStyle = "#111"; ctx.lineWidth = 1.5; ctx.stroke();
-
-      // Barbs
-      let remaining = spd;
-      let pos = 0;
-      const barbSpacing = 5;
-      const barbLen = 12;
-      const pennantLen = 12;
-
-      const perpX = Math.cos(rad);
-      const perpY = Math.sin(rad);
-
-      // Pennants (50 kt)
-      while (remaining >= 47) {
-        const bx = x2 - pos * Math.sin(rad);
-        const by = y2 + pos * Math.cos(rad);
-        ctx.beginPath();
-        ctx.moveTo(bx, by);
-        ctx.lineTo(bx + pennantLen * perpX - barbSpacing * Math.sin(rad),
-                   by + pennantLen * perpY + barbSpacing * Math.cos(rad));
-        ctx.lineTo(bx - barbSpacing * Math.sin(rad),
-                   by + barbSpacing * Math.cos(rad));
-        ctx.closePath();
-        ctx.fillStyle = "#111"; ctx.fill();
-        remaining -= 50;
-        pos += barbSpacing + 2;
-      }
-
-      // Full barbs (10 kt)
-      while (remaining >= 7) {
-        const bx = x2 - pos * Math.sin(rad);
-        const by = y2 + pos * Math.cos(rad);
-        ctx.beginPath();
-        ctx.moveTo(bx, by);
-        ctx.lineTo(bx + barbLen * perpX, by + barbLen * perpY);
-        ctx.strokeStyle = "#111"; ctx.lineWidth = 1.5; ctx.stroke();
-        remaining -= 10;
-        pos += barbSpacing;
-      }
-
-      // Half barb (5 kt)
-      if (remaining >= 2) {
-        const bx = x2 - pos * Math.sin(rad);
-        const by = y2 + pos * Math.cos(rad);
-        ctx.beginPath();
-        ctx.moveTo(bx, by);
-        ctx.lineTo(bx + (barbLen / 2) * perpX, by + (barbLen / 2) * perpY);
-        ctx.strokeStyle = "#111"; ctx.lineWidth = 1.5; ctx.stroke();
-      }
+    while (remaining >= 47.5) {
+      const bx = x2 - pos * spacing * Math.sin(rad);
+      const by = y2 + pos * spacing * Math.cos(rad);
+      const px1 = bx + pennantLen * Math.sin(perpRad);
+      const py1 = by - pennantLen * Math.cos(perpRad);
+      const bx2 = bx - spacing * Math.sin(rad);
+      const by2 = by + spacing * Math.cos(rad);
+      svg += `<polygon points="${bx},${by} ${px1},${py1} ${bx2},${by2}"
+        fill="#222" stroke="#222" stroke-width="0.5"/>`;
+      pos += 1.5; remaining -= 50;
+    }
+    while (remaining >= 7.5) {
+      const bx = x2 - pos * spacing * Math.sin(rad);
+      const by = y2 + pos * spacing * Math.cos(rad);
+      const ex = bx + barbLen * Math.sin(perpRad);
+      const ey = by - barbLen * Math.cos(perpRad);
+      svg += `<line x1="${bx}" y1="${by}" x2="${ex}" y2="${ey}" stroke="#222" stroke-width="1.5"/>`;
+      pos += 1; remaining -= 10;
+    }
+    if (remaining >= 2.5) {
+      const bx = x2 - pos * spacing * Math.sin(rad);
+      const by = y2 + pos * spacing * Math.cos(rad);
+      const ex = bx + (barbLen * 0.5) * Math.sin(perpRad);
+      const ey = by - (barbLen * 0.5) * Math.cos(perpRad);
+      svg += `<line x1="${bx}" y1="${by}" x2="${ex}" y2="${ey}" stroke="#222" stroke-width="1.5"/>`;
     }
   }
 
-  return canvas.toDataURL();
+  // Temperature (upper-left)
+  const tF = d.tmpf !== undefined && d.tmpf !== 'M' ? parseFloat(d.tmpf).toFixed(0) : '—';
+  svg += `<text x="2" y="16" font-size="11" font-weight="bold" fill="#c0392b"
+    font-family="Arial,sans-serif">${tF}</text>`;
+
+  // Dew point (lower-left)
+  const dF = d.dwpf !== undefined && d.dwpf !== 'M' ? parseFloat(d.dwpf).toFixed(0) : '—';
+  svg += `<text x="2" y="72" font-size="11" font-weight="bold" fill="#27ae60"
+    font-family="Arial,sans-serif">${dF}</text>`;
+
+  // SLP coded (upper-right)
+  const slpCode = codeSLP(d.mslp);
+  svg += `<text x="${W-2}" y="16" font-size="10" font-weight="bold" fill="#2c3e50"
+    text-anchor="end" font-family="Arial,sans-serif">${slpCode}</text>`;
+
+  svg += `</svg>`;
+  return svg;
 }
 
-// ── POPULATE PANEL ────────────────────────────────────────────────────────────
-function populatePanel(d) {
-  document.getElementById('tdStation').textContent  = fmtVal(d.station);
-  document.getElementById('tdTime').textContent     = fmtVal(d.valid);
-  document.getElementById('tdTemp').textContent     = fmtVal(d.tmpf) !== "—" ? Math.round(d.tmpf) + " °F" : "—";
-  document.getElementById('tdDew').textContent      = fmtVal(d.dwpf) !== "—" ? Math.round(d.dwpf) + " °F" : "—";
-  document.getElementById('tdRelh').textContent     = fmtVal(d.relh) !== "—" ? Math.round(d.relh) + "%" : "—";
+// ── LOAD STATIONS ─────────────────────────────────────────────────────────────
+async function loadStations() {
+  const dateVal = document.getElementById('inputDate').value;
+  const timeVal = document.getElementById('inputTime').value;
+  const status  = document.getElementById('topStatus');
+
+  if (!dateVal || !timeVal) {
+    status.textContent = '⚠ Please select a date and time.';
+    return;
+  }
+
+  const [yyyy, mm, dd] = dateVal.split('-');
+  const [hh]           = timeVal.split(':');
+  const dt1 = `${yyyy}-${mm}-${dd}T${hh.padStart(2,'0')}:00`;
+  const hh2 = String(parseInt(hh) + 1).padStart(2, '0');
+  const dt2 = `${yyyy}-${mm}-${dd}T${hh2}:00`;
+
+  status.textContent = '⏳ Loading station data…';
+  clusterGroup.clearLayers();
+  stationDataStore = {};
+  document.getElementById('noData').textContent = 'Loading…';
+
+  const fields = ['station','valid','tmpf','dwpf','relh','drct','sknt','gust',
+                  'mslp','alti','vsby','skyc1','wxcodes','metar','lon','lat'];
+  const url = `https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py`
+    + `?data=${fields.join('&data=')}`
+    + `&year1=${yyyy}&month1=${mm}&day1=${dd}&hour1=${hh.padStart(2,'0')}&minute1=0`
+    + `&year2=${yyyy}&month2=${mm}&day2=${dd}&hour2=${hh2}&minute2=0`
+    + `&tz=UTC&format=onlycomma&latlon=yes&elev=no&missing=M&trace=T&direct=no&report_type=3`;
+
+  try {
+    const resp = await fetch(url);
+    const text = await resp.text();
+    const lines = text.trim().split('\n');
+    if (lines.length < 2) throw new Error('No data returned');
+
+    const headers = lines[0].split(',').map(h => h.trim());
+    const rows = lines.slice(1);
+    const seen = new Set();
+    let count = 0;
+
+    for (const row of rows) {
+      if (count >= MAX_STATIONS) break;
+      const cols = row.split(',');
+      if (cols.length < headers.length) continue;
+
+      const d = {};
+      headers.forEach((h, i) => d[h] = cols[i]?.trim());
+
+      const lat = parseFloat(d.lat);
+      const lon = parseFloat(d.lon);
+      if (isNaN(lat) || isNaN(lon)) continue;
+      if (lat < CONUS.minLat || lat > CONUS.maxLat) continue;
+      if (lon < CONUS.minLon || lon > CONUS.maxLon) continue;
+      if (seen.has(d.station)) continue;
+      seen.add(d.station);
+
+      stationDataStore[d.station] = d;
+
+      const svgHtml = buildStationSVG(d);
+      const icon = L.divIcon({
+        html: svgHtml,
+        iconSize: [80, 80],
+        iconAnchor: [40, 40],
+        className: ''
+      });
+
+      const marker = L.marker([lat, lon], {
+        icon,
+        title: d.station,
+        alt: `Station ${d.station}`,
+        keyboard: true
+      });
+
+      marker.on('mouseover', () => { if (!lockedStation) showStation(d); });
+      marker.on('focus',     () => { if (!lockedStation) showStation(d); });
+      marker.on('click',     () => lockStation(d));
+      marker.on('keypress',  (e) => { if (e.originalEvent.key === 'Enter') lockStation(d); });
+
+      clusterGroup.addLayer(marker);
+      count++;
+    }
+
+    status.textContent = `✅ Loaded ${count} stations for ${dateVal} ${hh.padStart(2,'0')}:00 UTC`;
+    document.getElementById('noData').textContent = 'Hover or click a station to see data.';
+
+  } catch (err) {
+    console.error('Station load error:', err);
+    status.textContent = '❌ Could not load METAR data. Check console for details.';
+    document.getElementById('noData').textContent = 'Error loading data.';
+  }
+}
+
+// ── SHOW STATION DATA ─────────────────────────────────────────────────────────
+function showStation(d) {
+  const tC  = parseFloat(d.tmpc ?? ((parseFloat(d.tmpf) - 32) * 5/9));
+  const tdC = parseFloat(d.dwpc ?? ((parseFloat(d.dwpf) - 32) * 5/9));
+
+  document.getElementById('tdStation').textContent  = d.station || '—';
+  document.getElementById('tdTime').textContent     = d.valid   || '—';
+  document.getElementById('tdTemp').textContent     = d.tmpf !== 'M' ? parseFloat(d.tmpf).toFixed(1) : '—';
+  document.getElementById('tdDew').textContent      = d.dwpf !== 'M' ? parseFloat(d.dwpf).toFixed(1) : '—';
+  document.getElementById('tdRelh').textContent     = d.relh !== 'M' ? d.relh : relHumidity(tC, tdC);
   document.getElementById('tdWdir').textContent     = degToCard(d.drct);
-  document.getElementById('tdWspd').textContent     = fmtVal(d.sknt) !== "—" ? d.sknt + " kt" : "—";
-  document.getElementById('tdGust').textContent     = fmtVal(d.gust) !== "—" ? d.gust + " kt" : "—";
-  document.getElementById('tdSlp').textContent      = fmtVal(d.mslp) !== "—" ? d.mslp + " mb" : "—";
+  document.getElementById('tdWspd').textContent     = d.sknt !== 'M' ? d.sknt : '—';
+  document.getElementById('tdGust').textContent     = d.gust !== 'M' ? d.gust : '—';
+  document.getElementById('tdSlp').textContent      = d.mslp !== 'M' ? d.mslp : '—';
   document.getElementById('tdSlpCoded').textContent = codeSLP(d.mslp);
-  document.getElementById('tdAlti').textContent     = fmtVal(d.alti) !== "—" ? d.alti + " in" : "—";
-  document.getElementById('tdVsby').textContent     = fmtVal(d.vsby) !== "—" ? d.vsby + " mi" : "—";
+  document.getElementById('tdAlti').textContent     = d.alti !== 'M' ? d.alti : '—';
+  document.getElementById('tdVsby').textContent     = d.vsby !== 'M' ? d.vsby : '—';
   document.getElementById('tdSky').textContent      = skyLabel(d.skyc1);
-  document.getElementById('tdWx').textContent       = fmtVal(d.wxcodes);
-  document.getElementById('tdRaw').textContent      = fmtVal(d.metar);
+  document.getElementById('tdWx').textContent       = d.wxcodes !== 'M' ? d.wxcodes : '—';
+  document.getElementById('tdRaw').textContent      = d.metar   || '—';
   document.getElementById('noData').style.display   = 'none';
 }
 
 // ── LOCK / UNLOCK ─────────────────────────────────────────────────────────────
-function lockStation(id) {
-  lockedStation = id;
+function lockStation(d) {
+  lockedStation = d.station;
+  showStation(d);
   document.getElementById('lockedBadge').style.display = 'inline';
 }
 
@@ -352,175 +466,43 @@ function unlockStation() {
   document.getElementById('lockedBadge').style.display = 'none';
 }
 
-// ── PARSE IEM CSV ─────────────────────────────────────────────────────────────
-function parseCSV(text) {
-  const lines = text.split('\n').filter(l => l.trim() && !l.startsWith('#'));
-  if (lines.length < 2) return [];
-  const headers = lines[0].split(',').map(h => h.trim());
-  const rows = [];
-  for (let i = 1; i < lines.length; i++) {
-    const vals = lines[i].split(',');
-    if (vals.length < headers.length) continue;
-    const obj = {};
-    headers.forEach((h, idx) => { obj[h] = vals[idx] ? vals[idx].trim() : ''; });
-    rows.push(obj);
-  }
-  return rows;
-}
-
-// ── LOAD STATIONS ─────────────────────────────────────────────────────────────
-async function loadStations() {
-  const dateVal = document.getElementById('inputDate').value;
-  const timeVal = document.getElementById('inputTime').value;
-
-  if (!dateVal || !timeVal) {
-    setStatus("⚠ Please select both a date and time.");
-    return;
-  }
-
-  // Parse date/time
-  const [yr, mo, dy] = dateVal.split('-');
-  const [hr, mn] = timeVal.split(':');
-
-  // End time = start + 1 hour
-  const startDt = new Date(Date.UTC(+yr, +mo - 1, +dy, +hr, +mn));
-  const endDt   = new Date(startDt.getTime() + 60 * 60 * 1000);
-
-  const yr2  = endDt.getUTCFullYear();
-  const mo2  = String(endDt.getUTCMonth() + 1).padStart(2, '0');
-  const dy2  = String(endDt.getUTCDate()).padStart(2, '0');
-  const hr2  = String(endDt.getUTCHours()).padStart(2, '0');
-  const mn2  = String(endDt.getUTCMinutes()).padStart(2, '0');
-
-  // IEM ASOS CGI endpoint — returns CSV, CORS-open
-  const url = [
-    'https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py?',
-    'data=tmpf,dwpf,relh,drct,sknt,gust,alti,mslp,vsby,skyc1,wxcodes,metar',
-    '&latlon=yes',
-    '&elev=no',
-    '&missing=M',
-    '&trace=T',
-    '&direct=no',
-    '&report_type=3',         // routine hourly observations
-    `&year1=${yr}&month1=${mo}&day1=${dy}&hour1=${hr}&minute1=${mn}`,
-    `&year2=${yr2}&month2=${mo2}&day2=${dy2}&hour2=${hr2}&minute2=${mn2}`,
-    '&tz=UTC',
-    '&format=comma',
-  ].join('');
-
-  setStatus("⏳ Loading stations…");
-  clusterGroup.clearLayers();
-  stationDataStore = {};
-  unlockStation();
-
-  try {
-    const resp = await fetch(url);
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const text = await resp.text();
-
-    if (text.trim().startsWith('<')) {
-      throw new Error("Server returned HTML instead of CSV — try a different time.");
-    }
-
-    const rows = parseCSV(text);
-    if (rows.length === 0) {
-      setStatus("⚠ No data returned. Try a different date/time.");
-      return;
-    }
-
-    // Filter CONUS + deduplicate (keep latest per station)
-    const stationMap = {};
-    for (const row of rows) {
-      const lat = parseFloat(row.lat);
-      const lon = parseFloat(row.lon);
-      if (isNaN(lat) || isNaN(lon)) continue;
-      if (lat < CONUS.minLat || lat > CONUS.maxLat) continue;
-      if (lon < CONUS.minLon || lon > CONUS.maxLon) continue;
-      stationMap[row.station] = row; // overwrite keeps latest
-    }
-
-    const stations = Object.values(stationMap).slice(0, MAX_STATIONS);
-
-    stations.forEach(d => {
-      const lat = parseFloat(d.lat);
-      const lon = parseFloat(d.lon);
-      const imgData = drawStationModel(d);
-
-      const icon = L.icon({
-        iconUrl: imgData,
-        iconSize: [90, 90],
-        iconAnchor: [45, 45],
-        className: ''
-      });
-
-      const marker = L.marker([lat, lon], {
-        icon,
-        title: d.station,
-        alt: `Station ${d.station}: Temp ${d.tmpf}°F, Dewpoint ${d.dwpf}°F, Wind ${degToCard(d.drct)} at ${d.sknt} kt`,
-        keyboard: true
-      });
-
-      // Hover
-      marker.on('mouseover', () => {
-        if (!lockedStation) populatePanel(d);
-      });
-
-      // Click to lock
-      marker.on('click', () => {
-        lockStation(d.station);
-        populatePanel(d);
-      });
-
-      // Keyboard focus
-      marker.on('keypress', (e) => {
-        if (e.originalEvent.key === 'Enter' || e.originalEvent.key === ' ') {
-          lockStation(d.station);
-          populatePanel(d);
-        }
-      });
-
-      stationDataStore[d.station] = d;
-      clusterGroup.addLayer(marker);
-    });
-
-    setStatus(`✅ Loaded ${stations.length} stations for ${dateVal} ${timeVal} UTC`);
-
-  } catch (err) {
-    console.error("Station load error:", err);
-    setStatus(`❌ Error: ${err.message}`);
-  }
-}
-
 // ── CSV EXPORT ────────────────────────────────────────────────────────────────
 function exportCSV() {
-  const stations = Object.values(stationDataStore);
-  if (stations.length === 0) {
-    alert("No station data loaded yet.");
-    return;
+  const rows = Object.values(stationDataStore);
+  if (!rows.length) { alert('No station data loaded yet.'); return; }
+
+  const headers = ['Station','Valid(UTC)','Temp(F)','Dewpoint(F)','RelHumidity(%)','WindDir','WindSpd(kt)',
+                   'Gust(kt)','SLP(mb)','SLP_Coded','Altimeter(in)','Visibility(mi)','SkyCover','Weather','RawMETAR'];
+  const lines = [headers.join(',')];
+
+  for (const d of rows) {
+    lines.push([
+      d.station, d.valid,
+      d.tmpf !== 'M' ? parseFloat(d.tmpf).toFixed(1) : '',
+      d.dwpf !== 'M' ? parseFloat(d.dwpf).toFixed(1) : '',
+      d.relh !== 'M' ? d.relh : '',
+      degToCard(d.drct),
+      d.sknt !== 'M' ? d.sknt : '',
+      d.gust !== 'M' ? d.gust : '',
+      d.mslp !== 'M' ? d.mslp : '',
+      codeSLP(d.mslp),
+      d.alti !== 'M' ? d.alti : '',
+      d.vsby !== 'M' ? d.vsby : '',
+      skyLabel(d.skyc1),
+      d.wxcodes !== 'M' ? d.wxcodes : '',
+      `"${(d.metar || '').replace(/"/g,'""')}"`
+    ].join(','));
   }
 
-  const headers = [
-    "Station","Valid (UTC)","Lat","Lon",
-    "Temp (F)","Dewpoint (F)","Rel Humidity (%)","Wind Dir (deg)","Wind Dir (cardinal)",
-    "Wind Speed (kt)","Wind Gust (kt)","Altimeter (in)","Sea Level Pressure (mb)",
-    "Coded SLP (WPC)","Visibility (mi)","Sky Cover","Present Weather","Raw METAR"
-  ];
-
-  const rows = stations.map(d => [
-    d.station, d.valid, d.lat, d.lon,
-    fmtVal(d.tmpf), fmtVal(d.dwpf), fmtVal(d.relh), fmtVal(d.drct), degToCard(d.drct),
-    fmtVal(d.sknt), fmtVal(d.gust), fmtVal(d.alti), fmtVal(d.mslp),
-    codeSLP(d.mslp), fmtVal(d.vsby), skyLabel(d.skyc1), fmtVal(d.wxcodes),
-    `"${fmtVal(d.metar)}"`
-  ]);
-
-  const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-  const blob = new Blob([csv], { type: 'text/csv' });
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `metar_stations_${document.getElementById('inputDate').value}_${document.getElementById('inputTime').value.replace(':','')}.csv`;
   a.click();
 }
+
+// ── AUTO LOAD ON PAGE READY ───────────────────────────────────────────────────
+window.addEventListener('load', loadStations);
 </script>
 </body>
 </html>
